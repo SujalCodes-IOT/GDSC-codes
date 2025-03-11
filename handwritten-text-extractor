@@ -1,0 +1,22 @@
+import google.generativeai as genai
+
+# Configure the API key
+genai.configure(api_key="Your Gemini API key")
+
+# Select the model
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# Load your handwriting image
+image_path = r"image.png"
+with open(image_path, "rb") as image_file:
+    image_data = image_file.read()
+
+# Generate content (Extract text from handwriting)
+response = model.generate_content([
+    {"mime_type": "image/png", "data": image_data},
+    "Extract the text from this handwriting as accurately as possible, even if it is cursive or complex handwriting. Preserve the meaning accurately."
+])
+
+# Print the extracted text
+print("Extracted Text:")
+print(response.text)
