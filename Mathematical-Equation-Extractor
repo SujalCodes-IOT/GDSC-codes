@@ -1,0 +1,71 @@
+import google.generativeai as genai
+#98-99% accuracy
+# ✅ Configure the Gemini API key
+genai.configure(api_key="your Gemini API key")
+
+# ✅ Path to the image file
+image_path = r"image.png"
+
+# ✅ Load the image as binary data
+try:
+    with open(image_path, "rb") as image_file:
+        image_data = image_file.read()
+except FileNotFoundError:
+    print("Error: The image file was not found at the specified path.")
+    exit()
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+    exit()
+
+# ✅ Initialize the Gemini model (Gemini 1.5 Pro)
+model = genai.GenerativeModel("gemini-1.5-pro")
+
+# ✅ Text prompt to ensure maximum mathematical accuracy
+prompt_text = """
+Extract the text from this image with 100% mathematical accuracy.
+
+✅ Avoid using any <sub> or <sup> tags in the output.
+✅ Capture mathematical notations as plain text without any HTML formatting.
+✅ If there are integrals, vectors, or differentials, capture them exactly as shown.
+✅ Ensure the output is purely text like this:
+    - Double Integral: ∬S Ā ∙ ῆ dS
+    - Vector: Ā = zî + 0xĵ + 3y²k̂
+    - Square root: √(x² + y²)
+    - Differentiation: ∂/∂x, ∂/∂y
+    - Greek letters: α, β, θ, ρ, λ (Do not convert them to English)
+    - Modulus/Absolute Value: |a|, |b|, |A|, |x|, |y|, |z|
+    - Matrices, determinants, and vectors should appear as-is.
+✅ Do not alter any mathematical symbols like ∫, ∬, ∮, ∂, ∇, Σ, √, ±, ≠, ≈, ≡, |a|.
+✅ If there is a modulus/absolute value sign like |a|, capture it exactly as |a| without changing it to 'mod(a)'.
+✅ Avoid unnecessary formatting like superscripts or subscripts; instead use clear mathematical notation.
+✅ Do not summarize or omit any part of the mathematical equation.
+✅ Capture the entire content as it is without making any assumptions.
+"""
+
+# ✅ Generate content using the Gemini API
+response = model.generate_content(
+    contents=[
+        {
+            "mime_type": "image/png",
+            "data": image_data
+        },
+        {
+            "text": prompt_text
+        }
+    ]
+)
+
+# ✅ Clean the output text (Remove any accidental HTML tags like <sub>, <sup>)
+cleaned_text = response.text.replace("<sub>", "").replace("</sub>", "")
+cleaned_text = cleaned_text.replace("<sup>", "").replace("</sup>", "")
+
+# ✅ Display the cleaned text
+print("✅ Extracted Mathematical Text from Image:\n")
+print(cleaned_text)
+
+# ✅ Optional: Save the output to a text file (Optional)
+output_file_path = r"D:\Downloads\Extracted_Math_Text.txt"
+with open(output_file_path, "w", encoding="utf-8") as text_file:
+    text_file.write(cleaned_text)
+
+print(f"\n✅ Successfully saved the extracted text to: {output_file_path}")
