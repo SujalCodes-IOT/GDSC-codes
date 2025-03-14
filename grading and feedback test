@@ -1,0 +1,91 @@
+import os
+import google.generativeai as genai
+from difflib import SequenceMatcher
+
+# Configure Gemini API key
+genai.configure(api_key="gemini api key")
+
+# ✅ Ensure file paths are correct
+student_answer_path = r"D:\Downloads\student.png"
+actual_answer_path = r"D:\Downloads\actual.png"
+
+# Function to check if a file exists
+def check_file_exists(file_path):
+    if os.path.exists(file_path):
+        print(f"✅ File found: {file_path}")
+        return True
+    else:
+        print(f"❌ Error: File not found -> {file_path}")
+        return False
+
+# Verify that both images exist before proceeding
+if not (check_file_exists(student_answer_path) and check_file_exists(actual_answer_path)):
+    exit()  # Stop execution if files are missing
+
+# Function to extract text from an image using Gemini API
+def extract_text(image_path):
+    try:
+        with open(image_path, "rb") as image_file:
+            image_data = image_file.read()
+
+        response = genai.GenerativeModel("gemini-1.5-flash").generate_content([
+            {"mime_type": "image/png", "data": image_data},
+            "Extract the text accurately from this handwritten answer sheet."
+        ])
+        
+        extracted_text = response.text.strip() if response.text else "No text detected."
+        return extracted_text
+
+    except Exception as e:
+        print(f"⚠️ Error extracting text from {image_path}: {e}")
+        return "Error in text extraction"
+
+# Extract text from both images
+print("\n🔄 Extracting text from student answer sheet...")
+student_text = extract_text(student_answer_path)
+
+print("\n🔄 Extracting text from actual answer sheet...")
+actual_text = extract_text(actual_answer_path)
+
+# Function to calculate marks out of 10
+def calculate_marks(student_text, actual_text):
+    if "Error" in student_text or "Error" in actual_text:
+        return "Grading not possible due to extraction error.", 0
+    
+    similarity = SequenceMatcher(None, student_text, actual_text).ratio()  # Calculate similarity (0 to 1)
+    total_marks = 10  # Maximum marks
+    obtained_marks = round(similarity * total_marks, 2)  # Scale marks to 10
+    return obtained_marks
+
+# Function to generate AI feedback for the student
+def generate_feedback(student_text, actual_text, marks_obtained):
+    try:
+        prompt = f"""
+        The student's answer is: {student_text}
+        The correct answer is: {actual_text}
+        The student scored {marks_obtained} out of 10.
+
+        Please provide detailed feedback:
+        - Why is the student's answer incorrect or incomplete?
+        - What mistakes did the student make?
+        - What can the student improve to get full marks?
+        - Give helpful suggestions to enhance their understanding.
+        """
+
+        response = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
+        return response.text.strip() if response.text else "No feedback available."
+
+    except Exception as e:
+        return f"⚠️ Error generating feedback: {e}"
+
+# Get marks
+marks_obtained = calculate_marks(student_text, actual_text)
+
+# Generate AI feedback
+feedback = generate_feedback(student_text, actual_text, marks_obtained)
+
+# Print extracted text, marks, and feedback
+print("\n📄 Student's Answer Sheet Extracted Text:\n", student_text)
+print("\n📄 Actual Answer Sheet Extracted Text:\n", actual_text)
+print("\n🎯 Final Marks (Out of 10): ", marks_obtained, " / 10")
+print("\n📢 AI Feedback for the Student:\n", feedback)
