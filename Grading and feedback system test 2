@@ -3,7 +3,7 @@ import fitz  # PyMuPDF for PDF text extraction
 import google.generativeai as genai
 import base64
 
-genai.configure(api_key="AIzaSyB8sa7trZoNOquT2X4dmGee-8XElKIFnis")  # Replace with your actual API key
+genai.configure(api_key="Gemini Api key")  # Replace with your actual API key
 
 # ✅ Math and Handwriting Extraction Prompts
 MATH_PROMPT = """
