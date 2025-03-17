@@ -1,0 +1,116 @@
+import os
+import fitz  # PyMuPDF for PDF text extraction
+import google.generativeai as genai
+import base64
+
+genai.configure(api_key="AIzaSyB8sa7trZoNOquT2X4dmGee-8XElKIFnis")  # Replace with your actual API key
+
+# ✅ Math and Handwriting Extraction Prompts
+MATH_PROMPT = """
+Extract the text from this image with 100% mathematical accuracy.
+
+✅ Avoid using any <sub> or <sup> tags in the output.
+✅ Capture mathematical notations as plain text without any HTML formatting.
+✅ If there are integrals, vectors, or differentials, capture them exactly as shown.
+✅ Ensure the output is purely text like this:
+    - Double Integral: ∬S Ā ∙ ῆ dS
+    - Vector: Ā = zî + 0xĵ + 3y²k̂
+    - Square root: √(x² + y²)
+    - Differentiation: ∂/∂x, ∂/∂y
+    - Greek letters: α, β, θ, ρ, λ (Do not convert them to English)
+    - Modulus/Absolute Value: |a|, |b|, |A|, |x|, |y|, |z|
+    - Matrices, determinants, and vectors should appear as-is.
+✅ Do not alter any mathematical symbols like ∫, ∬, ∮, ∂, ∇, Σ, √, ±, ≠, ≈, ≡, |a|.
+✅ If there is a modulus/absolute value sign like |a|, capture it exactly as |a| without changing it to 'mod(a)'.
+✅ Avoid unnecessary formatting like superscripts or subscripts; instead use clear mathematical notation.
+✅ Do not summarize or omit any part of the mathematical equation.
+✅ Capture the entire content as it is without making any assumptions.
+"""
+
+HANDWRITING_PROMPT = "Extract the text from this handwriting as accurately as possible. Maintain original words and spacing."
+
+GRADING_PROMPT = """
+You are an expert teacher evaluating a student's answer sheet.
+Carefully compare each student answer with the ideal answer.  
+Assess based on accuracy, clarity, and conceptual correctness.  
+
+Instructions:  
+✅ Ensure **mathematical expressions** are correctly used.  
+✅ Ignore minor grammar/spelling mistakes unless they change the meaning.  
+✅ Check if the student's explanation **logically aligns** with the ideal answer.  
+✅ Assign grades fairly:
+   - **100% (✅ Correct)**: Matches the ideal answer in concept and detail.  
+   - **50-85% (⚠️ Partially Correct)**: Some errors but concept is mostly right.  
+   - **0-50% (❌ Incorrect)**: Incorrect concept or completely unrelated answer.  
+
+Provide **detailed feedback** to help the student understand mistakes and improve.
+"""
+
+def extract_text_from_pdf(pdf_path, is_math=False, is_handwriting=False):
+    """Extracts selectable text from a PDF, else falls back to Gemini API."""
+    doc = fitz.open(pdf_path)
+    extracted_text = ""
+    
+    for page in doc:
+        text = page.get_text("text")
+        if text.strip():
+            extracted_text += text + "\n"
+    
+    if not extracted_text.strip():
+        print(f"⚠️ No selectable text in PDF. Using Gemini API...")
+        extracted_text = extract_text_with_gemini(doc, is_math, is_handwriting)
+    
+    print(f"📜 Extracted Text from PDF:\n{extracted_text}\n")
+    return extracted_text.strip()
+
+def extract_text_with_gemini(doc, is_math, is_handwriting):
+    """Uses Gemini API to extract text from an image-based PDF."""
+    extracted_text = ""
+    prompt = MATH_PROMPT if is_math else HANDWRITING_PROMPT if is_handwriting else "Extract the text as accurately as possible."
+    
+    for page in doc:
+        img = page.get_pixmap()
+        img_bytes = img.tobytes("png")
+        img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+        image_data = {"mime_type": "image/png", "data": img_base64}
+        
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content([image_data, prompt])
+            if response and hasattr(response, "text"):
+                extracted_text += response.text + "\n"
+        except Exception as e:
+            print(f"❌ Gemini API Error: {e}")
+    
+    return extracted_text.strip()
+
+def grade_with_gemini(student_text, ideal_text):
+    """Uses Gemini API to compare student answers with ideal answers."""
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content([
+            f"Student Answer:\n{student_text}\n\nIdeal Answer:\n{ideal_text}\n\n{GRADING_PROMPT}"
+        ])
+        if response and hasattr(response, "text"):
+            return response.text.strip()
+    except Exception as e:
+        print(f"❌ Gemini API Grading Error: {e}")
+    return "Grading failed. Try again."
+
+# ✅ Main Execution
+student_pdf = r"D:\\Downloads\\WhatsApp Image 2025-03-17 at 21.03.54_bdd753e1.pdf"
+ideal_pdf = r"D:\\Downloads\\WhatsApp Image 2025-03-17 at 21.03.46_5e1521bd.pdf"
+
+print("🔄 Extracting text from Student Answer Sheet...")
+student_text = extract_text_from_pdf(student_pdf, is_math=True, is_handwriting=True)
+
+print("🔄 Extracting text from Ideal Answer Sheet...")
+ideal_text = extract_text_from_pdf(ideal_pdf, is_math=True, is_handwriting=True)
+
+if student_text and ideal_text:
+    print("✅ Generating Grades and Feedback...")
+    feedback = grade_with_gemini(student_text, ideal_text)
+    print("Feedback:")
+    print(feedback)
+else:
+    print("❌ Error: One or both PDFs could not be processed.")
